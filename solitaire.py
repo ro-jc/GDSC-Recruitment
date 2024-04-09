@@ -26,6 +26,9 @@ class Card:
         self.suit = suit
         self.visible = visible
 
+    def set_visibility(self, visibility):
+        self.visible = visibility
+
     def __str__(self):
         return f"{self.rank}_{self.suit}" if self.visible else " x "
 
@@ -41,6 +44,9 @@ class Deck:
     def deal(self):
         return self.cards.pop()
 
+    def is_available(self):
+        return len(self.cards) != 0
+
     def shuffle(self, s=2130):
         """Fischer-Yates Shuffle"""
         r = Random(s)
@@ -52,8 +58,8 @@ class Deck:
 
 
 class Tableau:
-    def __init__(self):
-        self.piles = [[] for i in range(7)]
+    def __init__(self, deck):
+        self.piles = [[deck.deal() for _ in range(i)] for i in range(7)]
 
     def __str__(self):
         lines = []
@@ -66,7 +72,50 @@ class Tableau:
                     line.append("   ")
             lines.append("\t".join(line))
 
-        return "\n".join(lines)
+        return "Tableau: " + "\n".join(lines)
+
+
+class Foundations:
+    def __init__(self):
+        self.piles = {suit: -1 for suit in Deck.suits}
+        self.completed = False
+
+    def add_to_pile(self, suit, n):
+        assert n + self.piles[suit] <= 12
+        self.piles[suit] += n
+
+        for _, rank_n in self.piles.items():
+            if rank_n != 12:
+                break
+        else:
+            self.completed = True
+
+    def __str__(self):
+        pile_tops = []
+        for suit, rank_n in self.piles.items():
+            if rank_n == 12:
+                pile_tops.append(" + ")
+            elif rank_n >= 0:
+                rank = Deck.ranks[rank_n]
+                pile_tops.append(str(Card(rank, suit, True)))
+            else:
+                pile_tops.append(" x ")
+
+        return "Foundations: " + "\t".join(pile_tops)
+
+
+class Reserve:
+    def __init__(self, deck):
+        self.waste = []
+        self.stock = []
+        while deck.is_available():
+            self.stock.append(deck.deal())
+
+        def reveal(self):
+            self.stock[-1].set_visibility(True)
+
+        def __str__():
+            return "Stock: " + str(self.stock[-1])
 
 
 if __name__ == "__main__":
