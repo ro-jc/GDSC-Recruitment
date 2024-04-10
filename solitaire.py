@@ -1,6 +1,10 @@
 # Following https://bicyclecards.com/how-to-play/solitaire
 
 
+SEP = 8 * " "
+CARD_LEN = 5
+
+
 class Random:
     def __init__(
         self, seed=0, cap=1, modulus=2**32, multiplier=1664525, increment=1013904223
@@ -30,7 +34,11 @@ class Card:
         self.visible = visibility
 
     def __str__(self):
-        return f"{self.rank}_{self.suit}" if self.visible else " x "
+        return (
+            f"{self.rank}_{self.suit}".center(CARD_LEN)
+            if self.visible
+            else "x".center(CARD_LEN)
+        )
 
 
 class Deck:
@@ -59,7 +67,9 @@ class Deck:
 
 class Tableau:
     def __init__(self, deck):
-        self.piles = [[deck.deal() for _ in range(i)] for i in range(7)]
+        self.piles = [[deck.deal() for _ in range(i)] for i in range(1, 8)]
+        for i, pile in enumerate(self.piles):
+            pile[i].set_visibility(True)
 
     def __str__(self):
         lines = []
@@ -69,10 +79,10 @@ class Tableau:
                 if len(self.piles[j]) > i:
                     line.append(str(self.piles[j][i]))
                 else:
-                    line.append("   ")
-            lines.append("\t".join(line))
+                    line.append(CARD_LEN * " ")
+            lines.append(SEP.join(line))
 
-        return "Tableau: " + "\n".join(lines)
+        return "Tableau:\n" + "\n".join(lines)
 
 
 class Foundations:
@@ -94,14 +104,14 @@ class Foundations:
         pile_tops = []
         for suit, rank_n in self.piles.items():
             if rank_n == 12:
-                pile_tops.append(" + ")
+                pile_tops.append("+".center(CARD_LEN))
             elif rank_n >= 0:
                 rank = Deck.ranks[rank_n]
                 pile_tops.append(str(Card(rank, suit, True)))
             else:
-                pile_tops.append(" x ")
+                pile_tops.append("x".center(CARD_LEN))
 
-        return "Foundations: " + "\t".join(pile_tops)
+        return "Foundations:\n" + SEP.join(pile_tops)
 
 
 class Reserve:
@@ -111,12 +121,33 @@ class Reserve:
         while deck.is_available():
             self.stock.append(deck.deal())
 
-        def reveal(self):
-            self.stock[-1].set_visibility(True)
+    def reveal(self):
+        self.stock[-1].set_visibility(True)
 
-        def __str__():
-            return "Stock: " + str(self.stock[-1])
+    def __str__(self):
+        return (
+            "Stock:\n"
+            + str(self.stock[-1])
+            + SEP
+            + "\nWaste:\n"
+            + (str(self.waste[0]) if self.waste else "-".center(CARD_LEN))
+        )
+
+
+class Table:
+    def __init__(self, seed):
+        deck = Deck(seed)
+        self.tableau = Tableau(deck)
+        self.reserve = Reserve(deck)
+        self.foundations = Foundations()
+
+    def __str__(self):
+        return "\n".join(map(str, [self.foundations, self.tableau, self.reserve]))
 
 
 if __name__ == "__main__":
-    pass
+    print("Welcome to Solitaire in the Terminal!!")
+    seed = int(input("Enter an integer that will determine the order of your deck: "))
+    table = Table(seed)
+
+    print(table)
