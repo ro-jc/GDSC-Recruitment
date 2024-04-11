@@ -74,9 +74,15 @@ class Tableau:
     def get_cards(self, pile_ind, start_card_ind):
         return self.piles[pile_ind][start_card_ind:]
 
+    def add_card(self, pile_ind, card):
+        self.piles[pile_ind].append(card)
+
     def remove_cards(self, pile_ind, start_card_ind):
         self.piles[pile_ind] = self.piles[pile_ind][:start_card_ind]
-        self.piles[pile_ind][start_card_ind - 1].set_visibility(True)
+        try:
+            self.piles[pile_ind][start_card_ind - 1].set_visibility(True)
+        except IndexError:
+            pass
 
     def move_cards(self, dest_pile_ind, source_pile_ind, source_start_card_ind):
         cards = self.piles[source_pile_ind][source_start_card_ind:]
@@ -84,19 +90,33 @@ class Tableau:
             :source_start_card_ind
         ]
         self.piles[dest_pile_ind].extend(cards)
+        try:
+            self.piles[source_pile_ind][source_start_card_ind - 1].set_visibility(True)
+        except IndexError:
+            pass
 
     def __str__(self):
+        header = (
+            SEP.join(
+                [" ".center(CARD_LEN)] + [str(i).center(CARD_LEN) for i in range(1, 8)]
+            )
+            + "\n"
+        )
+
         lines = []
         for i in range(max([len(p) for p in self.piles])):
-            line = []
+            line = [str(i + 1).center(CARD_LEN)]
             for j in range(7):
                 if len(self.piles[j]) > i:
                     line.append(str(self.piles[j][i]))
                 else:
-                    line.append(CARD_LEN * " ")
+                    if i == 0:
+                        line.append("-".center(CARD_LEN))
+                    else:
+                        line.append(" ".center(CARD_LEN))
             lines.append(SEP.join(line))
 
-        return "Tableau:\n" + "\n".join(lines)
+        return "Tableau:\n" + header + "\n".join(lines)
 
 
 class Foundations:
@@ -138,8 +158,24 @@ class Reserve:
         while deck.is_available():
             self.stock.append(deck.deal())
 
+    def get(self):
+        return self.stock[-1]
+
+    def pop(self):
+        return self.stock.pop()
+
     def reveal(self):
         self.stock[-1].set_visibility(True)
+
+    def discard(self):
+        if self.waste:
+            self.waste[-1].set_visibility(False)
+
+        self.waste.append(self.pop())
+        if not self.stock:
+            self.waste[-1].set_visibility(False)
+            self.stock = self.waste[::-1].copy()
+            self.waste = []
 
     def is_revealed(self):
         return self.stock[-1].visible
@@ -150,7 +186,7 @@ class Reserve:
             + str(self.stock[-1])
             + SEP
             + "\nWaste:\n"
-            + (str(self.waste[0]) if self.waste else "-".center(CARD_LEN))
+            + (str(self.waste[-1]) if self.waste else "-".center(CARD_LEN))
         )
 
 
@@ -170,8 +206,10 @@ class Table:
             if choice == "0":
                 print("Thank you for playing!")
                 break
+            elif choice == "4":
+                self.reserve.discard()
             elif choice == "3":
-                self.reveal()
+                self.reserve.reveal()
             elif choice == "2":
                 self.move_to_foundation()
             elif choice == "1":
@@ -192,6 +230,8 @@ class Table:
         )
         if not revealed:
             print("3. reveal from stock pile")
+        else:
+            print("4. discard from stock pile")
         while True:
             choice = input("Select your option number or type 'quit': ")
             if choice == "quit":
@@ -200,16 +240,15 @@ class Table:
                 return choice
             elif choice == "3" and not revealed:
                 return choice
+            elif choice == "4" and revealed:
+                return choice
             else:
                 print(
                     "Invalid choice - please enter a number corresponding to one of the given options"
                 )
 
-    def reveal(self):
-        self.reserve.reveal()
-
     def move_to_foundation(self):
-        choice = self.get_user_choice_foundation()
+        choice = self.get_user_choice_source()
         if choice == "1":
             while True:
                 source_pile_n, card_n = map(
@@ -246,7 +285,7 @@ class Table:
             self.reserve.pop()
             self.foundations.add_to_pile(card.suit, 1)
 
-    def get_user_choice_foundation(self):
+    def get_user_choice_source(self):
         revealed = self.reserve.is_revealed()
         if not revealed:
             return "1"
@@ -264,7 +303,58 @@ class Table:
                 )
 
     def move_to_tableau(self):
-        pass
+        choice = self.get_user_choice_source()
+        if choice == "1":
+            while True:
+                source_pile_n, source_card_n = map(
+                    int, input("Enter starting card<col row>: ").split()
+                )
+
+                cards = table.tableau.get_cards(source_pile_n - 1, source_card_n - 1)
+                if not cards[0].visible:
+                    print("Invalid start card")
+                else:
+                    dest_pile_n = int(input("Enter destination pile: "))
+                    try:
+                        card = self.tableau.get_cards(dest_pile_n - 1, -1)[0]
+
+                        if (
+                            Deck.ranks.index(cards[0].rank)
+                            != Deck.ranks.index(card.rank) - 1
+                        ):
+                            print("Prior card not available in destination pile")
+                        else:
+                            break
+                    except IndexError:
+                        if Deck.ranks.index(cards[0].rank) != 12:
+                            print("Only K can be moved to empty pile")
+                        else:
+                            break
+
+            self.tableau.move_cards(
+                dest_pile_n - 1, source_pile_n - 1, source_card_n - 1
+            )
+        else:
+            card = self.reserve.get()
+
+            while True:
+                dest_pile_n = int(input("Enter destination pile: "))
+                try:
+                    dest_pile_card = self.tableau.get_cards(dest_pile_n - 1, -1)[0]
+                    if (
+                        Deck.ranks.index(card.rank)
+                        != Deck.ranks.index(dest_pile_card.rank) - 1
+                    ):
+                        print("Prior card not available in destination pile")
+                    else:
+                        break
+                except IndexError:
+                    if Deck.ranks.index(card.rank) != 12:
+                        print("Only K can be moved to empty pile")
+                    else:
+                        break
+            self.reserve.pop()
+            self.tableau.add_card(dest_pile_n - 1, card)
 
     def __str__(self):
         return "\n".join(map(str, [self.foundations, self.tableau, self.reserve]))
@@ -275,24 +365,3 @@ if __name__ == "__main__":
     seed = int(input("Enter an integer that will determine the order of your deck: "))
     table = Table(seed)
     table.play()
-
-    # while True:
-    # table.foundations.add_to_pile(n)
-    #     elif choice == 1:
-    #         print("1. move from tableau")
-    #         if table.reserve.is_revealed():
-    #             print("2. move from stock pile")
-    #             choice_2 = int(input("pick your play: "))
-    #             if choice_2 == 2:
-    #                 if not table.reserve.is_revealed():
-    #                     print("invalid choice")
-    #                 else:
-    #                     pile_n = int(input("select pile: "))
-    #                     try:
-    #                         table.tableau.piles[pile_n - 1].append(table.reserve.deal())
-    #                     except:
-    #                         print("invalid destination")
-    #         else:
-    #             source_pile_n, n = map(int, input("select source<col row>: ").split())
-    #             dest_pile_n = int(input("select destination pile: "))
-    #             table.tableau.move((source_pile_n, n), dest_pile_n)
