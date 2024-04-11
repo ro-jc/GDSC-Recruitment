@@ -71,6 +71,20 @@ class Tableau:
         for i, pile in enumerate(self.piles):
             pile[i].set_visibility(True)
 
+    def get_cards(self, pile_ind, start_card_ind):
+        return self.piles[pile_ind][start_card_ind:]
+
+    def remove_cards(self, pile_ind, start_card_ind):
+        self.piles[pile_ind] = self.piles[pile_ind][:start_card_ind]
+        self.piles[pile_ind][start_card_ind - 1].set_visibility(True)
+
+    def move_cards(self, dest_pile_ind, source_pile_ind, source_start_card_ind):
+        cards = self.piles[source_pile_ind][source_start_card_ind:]
+        self.piles[source_pile_ind] = self.piles[source_pile_ind][
+            :source_start_card_ind
+        ]
+        self.piles[dest_pile_ind].extend(cards)
+
     def __str__(self):
         lines = []
         for i in range(max([len(p) for p in self.piles])):
@@ -100,6 +114,9 @@ class Foundations:
         else:
             self.completed = True
 
+    def get_filled(self, suit):
+        return self.piles[suit]
+
     def __str__(self):
         pile_tops = []
         for suit, rank_n in self.piles.items():
@@ -124,6 +141,9 @@ class Reserve:
     def reveal(self):
         self.stock[-1].set_visibility(True)
 
+    def is_revealed(self):
+        return self.stock[-1].visible
+
     def __str__(self):
         return (
             "Stock:\n"
@@ -140,14 +160,139 @@ class Table:
         self.tableau = Tableau(deck)
         self.reserve = Reserve(deck)
         self.foundations = Foundations()
+        self.n_moves = 0
+
+    def play(self):
+        print("Welcome to Solitaire in the Terminal!!")
+        while True:
+            print(self)
+            choice = self.get_user_move()
+            if choice == "0":
+                print("Thank you for playing!")
+                break
+            elif choice == "3":
+                self.reveal()
+            elif choice == "2":
+                self.move_to_foundation()
+            elif choice == "1":
+                self.move_to_tableau()
+
+            if self.foundations.completed:
+                print(f"Congratulations, you have won the game in {self.n_moves}!!")
+                break
+
+            self.n_moves += 1  # handle reveal separately?
+
+    def get_user_move(self):
+        revealed = self.reserve.is_revealed()
+        print(
+            "1. move to tableau",
+            "2. move to foundation",
+            sep="\n",
+        )
+        if not revealed:
+            print("3. reveal from stock pile")
+        while True:
+            choice = input("Select your option number or type 'quit': ")
+            if choice == "quit":
+                return "0"
+            elif "1" <= choice <= "2":
+                return choice
+            elif choice == "3" and not revealed:
+                return choice
+            else:
+                print(
+                    "Invalid choice - please enter a number corresponding to one of the given options"
+                )
+
+    def reveal(self):
+        self.reserve.reveal()
+
+    def move_to_foundation(self):
+        choice = self.get_user_choice_foundation()
+        if choice == "1":
+            while True:
+                source_pile_n, card_n = map(
+                    int, input("Entering starting card<col row>: ").split()
+                )
+
+                cards = table.tableau.get_cards(source_pile_n - 1, card_n - 1)
+                if not cards[0].visible:
+                    print("Invalid start card")
+                else:
+                    for card in cards:
+                        if card.suit != cards[0].suit:
+                            print("Cards not same suit")
+                    else:
+                        break
+            if (
+                Deck.ranks.index(cards[-1].rank)
+                != self.foundations.get_filled(cards[0].suit) + 1
+            ):
+                print("Foundation missing prior cards")
+                return
+
+            self.tableau.remove_cards(source_pile_n - 1, card_n - 1)
+            self.foundations.add_to_pile(cards[0].suit, len(cards))
+        else:
+            card = self.reserve.get()
+            if (
+                Deck.ranks.index(card.rank)
+                != self.foundations.get_filled(card.suit) + 1
+            ):
+                print("Foundation missing prior cards")
+                return
+
+            self.reserve.pop()
+            self.foundations.add_to_pile(card.suit, 1)
+
+    def get_user_choice_foundation(self):
+        revealed = self.reserve.is_revealed()
+        if not revealed:
+            return "1"
+
+        print("1. move from tableau", "2. move from stock pile", sep="\n")
+        while True:
+            choice = input("Select your option number: ")
+            if choice == "1":
+                return choice
+            elif choice == "2" and revealed:
+                return choice
+            else:
+                print(
+                    "Invalid choice - please enter a number corresponding to one of the given options"
+                )
+
+    def move_to_tableau(self):
+        pass
 
     def __str__(self):
         return "\n".join(map(str, [self.foundations, self.tableau, self.reserve]))
 
 
 if __name__ == "__main__":
-    print("Welcome to Solitaire in the Terminal!!")
+
     seed = int(input("Enter an integer that will determine the order of your deck: "))
     table = Table(seed)
+    table.play()
 
-    print(table)
+    # while True:
+    # table.foundations.add_to_pile(n)
+    #     elif choice == 1:
+    #         print("1. move from tableau")
+    #         if table.reserve.is_revealed():
+    #             print("2. move from stock pile")
+    #             choice_2 = int(input("pick your play: "))
+    #             if choice_2 == 2:
+    #                 if not table.reserve.is_revealed():
+    #                     print("invalid choice")
+    #                 else:
+    #                     pile_n = int(input("select pile: "))
+    #                     try:
+    #                         table.tableau.piles[pile_n - 1].append(table.reserve.deal())
+    #                     except:
+    #                         print("invalid destination")
+    #         else:
+    #             source_pile_n, n = map(int, input("select source<col row>: ").split())
+    #             dest_pile_n = int(input("select destination pile: "))
+    #             table.tableau.move((source_pile_n, n), dest_pile_n)
