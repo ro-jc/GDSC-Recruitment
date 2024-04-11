@@ -251,9 +251,13 @@ class Table:
         choice = self.get_user_choice_source()
         if choice == "1":
             while True:
-                source_pile_n, card_n = map(
-                    int, input("Entering starting card<col row>: ").split()
-                )
+                try:
+                    source_pile_n, card_n = map(
+                        int, input("Entering starting card<col row>: ").split()
+                    )
+                except ValueError:
+                    print("Invalid format. Enter as <col_number row_number>")
+                    continue
 
                 cards = table.tableau.get_cards(source_pile_n - 1, card_n - 1)
                 if not cards[0].visible:
@@ -306,9 +310,13 @@ class Table:
         choice = self.get_user_choice_source()
         if choice == "1":
             while True:
-                source_pile_n, source_card_n = map(
-                    int, input("Enter starting card<col row>: ").split()
-                )
+                try:
+                    source_pile_n, source_card_n = map(
+                        int, input("Enter starting card<col row>: ").split()
+                    )
+                except ValueError:
+                    print("Invalid format. Enter as <col_number row_number>")
+                    continue
 
                 cards = table.tableau.get_cards(source_pile_n - 1, source_card_n - 1)
                 if not cards[0].visible:
